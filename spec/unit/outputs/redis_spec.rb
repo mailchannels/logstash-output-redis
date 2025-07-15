@@ -40,6 +40,51 @@ describe LogStash::Outputs::Redis do
     end
   end
 
+  context "Mailchannels added features" do
+    describe "string data type with expire" do
+      let(:key) { "test_key" }
+      let(:expire) { 300 }
+      let(:config) {
+        {
+          "data_type" => "string",
+          "key" => key,
+          "expire" => 300,
+          "value" => "%{message}"
+         }
+      }
+
+      let(:redis) { described_class.new(config) }
+      let(:redis_mock) { double("redis") }
+
+      it "sets event field with expire TTL" do
+        redis.register
+        
+        allow(redis).to receive(:connect).and_return(redis_mock)
+        allow(redis_mock).to receive(:set)
+        allow(redis_mock).to receive(:expire)
+  
+        expect(redis_mock).to receive(:set).with(key, "event message")
+        expect(redis_mock).to receive(:expire).with(key, expire)
+  
+        expect{redis.receive(LogStash::Event.new({"message" => "event message"}))}.to_not raise_error
+      end
+    end
+    describe "string data type with no value provided" do
+      let(:config) {
+        {
+          "data_type" => "string",
+          "key" => "test_key",
+         }
+      }
+
+      it "raises error about missing value" do
+        expect {
+          described_class.new(config).register
+        }.to raise_error(RuntimeError, "Value must be provided when data_type is set to string")
+      end
+    end
+  end
+
   context "with SSL enabled" do
     let(:config) {{ "ssl_enabled" => true, "key" => "key", "data_type" => "list" }}
     subject(:plugin) { described_class.new(config) }

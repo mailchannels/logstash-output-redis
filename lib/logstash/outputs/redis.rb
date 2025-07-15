@@ -79,9 +79,16 @@ class LogStash::Outputs::Redis < LogStash::Outputs::Base
   # valid here, for example `logstash-%{type}`.
   config :key, :validate => :string, :required => true
 
-  # Either list or channel.  If `redis_type` is list, then we will set
+  # Either string, list or channel.  If `redis_type` is string, then we will. 
+  # set SET to key. If `redis_type` is list, then we will set
   # RPUSH to key. If `redis_type` is channel, then we will PUBLISH to `key`.
-  config :data_type, :validate => [ "list", "channel" ], :required => true
+  config :data_type, :validate => [ "string", "list", "channel" ], :required => true
+
+  # The value to write when data_type is "string". Supports event field interpolation (e.g., "%{field}").
+  config :value, :validate => :string, :default => nil
+
+  # Expiration time in seconds for the key when data_type is "string"
+  config :expire, :validate => :number, :default => nil
 
   # Set to true if you want Redis to batch up values and send 1 RPUSH command
   # instead of one command per value to push on the list.  Note that this only
@@ -131,6 +138,21 @@ class LogStash::Outputs::Redis < LogStash::Outputs::Base
         :max_interval => @batch_timeout,
         :logger => @logger
       )
+    end
+
+    if @data_type == "string"
+      if not @value
+        raise RuntimeError.new(
+          "Value must be provided when data_type is set to 'string'."
+        )
+      end
+      
+      if @expire && @expire <= 0
+        raise RuntimeError.new(
+          "Invalid expire TTL: must be greater than 0 seconds."
+        )
+      end
+      @logger.warn("Key expire TTL set to #{@expire} seconds")
     end
 
     @redis = nil
@@ -307,7 +329,11 @@ class LogStash::Outputs::Redis < LogStash::Outputs::Base
 
     begin
       @redis ||= connect
-      if @data_type == 'list'
+      if @data_type == 'string'
+        value = event.sprintf(@value)
+        @redis.set(key, value)
+        @redis.expire(key, @expire) if @expire
+      elsif @data_type == 'list'
         congestion_check(key)
         @redis.rpush(key, payload)
       else
