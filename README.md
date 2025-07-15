@@ -1,8 +1,7 @@
 # Logstash Plugin
 
-[![Travis Build Status](https://travis-ci.com/logstash-plugins/logstash-output-redis.svg)](https://travis-ci.com/logstash-plugins/logstash-output-redis)
 
-This is a plugin for [Logstash](https://github.com/elastic/logstash).
+This plugin is a customized fork of [logstash-output-redis](https://www.elastic.co/docs/reference/logstash/plugins/plugins-outputs-redis). We have extended it with additional features to better fit our use cases, including  writing string values with automatic key expiration.
 
 It is fully free and fully open source. The license is Apache 2.0, meaning you are pretty much free to use it however you want in whatever way.
 
